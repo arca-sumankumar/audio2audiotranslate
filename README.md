@@ -198,7 +198,8 @@ per session.
   recorded `data/test_audio/*.txt` transcripts via `make test-batch`.
 
 For a **Hindi → English** demo, select **NLLB** (the configured default; fast)
-or **IndicTrans2** (best hi→en quality; slow on CPU, ~2–10 s/sentence).
+or **IndicTrans2** (best hi→en quality per [docs/MT_EVAL.md](docs/MT_EVAL.md);
+slow on CPU, ~2–10 s/sentence).
 **Bergamot** hi↔en requires `make models` + `pip install fxtranslate` first —
 without them the job fails with a clear `MT_ERROR`.
 
@@ -268,6 +269,38 @@ Baseline model: faster-whisper large-v3-turbo (int8, CPU). Language is forced
   IndicConformer / IndicASR) or a fine-tuned model.
 - English gold-standard baseline on the simulated doctor–patient corpus:
   **0.285 WER / 0.123 CER** (full-file, medical context).
+
+## Real-native MT evaluation (translation quality)
+
+The translation leg of the same chain (`native audio → STT in native script →
+MT to English`) is measured reference-free on the real-native sets with the
+shipped ASR routing. Full method, per-clip numbers, error analysis and rerun
+procedure: **[docs/MT_EVAL.md](docs/MT_EVAL.md)**.
+
+**Condensed verdict** (cascade WER between EN(gold) and EN(STT); higher =
+more STT noise reaches the customer):
+
+| lang | NLLB cascWER | IndicTrans2 cascWER | English-term recall in EN(STT) | Recommended MT |
+|---|---|---|---|---|
+| hi (ekacare) | 0.931 | **0.815** | 0.50 / **0.60** | IndicTrans2 |
+| hi (eQOURSE) | 0.929 | **0.784** | 0.55 / 0.55 | IndicTrans2 |
+| gu | **0.819** | 0.911 | 0.52 / 0.55 | NLLB (keeps digits) |
+| ml | 1.062 | 1.230 | 0.00 / 0.00 | neither — normalize number-words first |
+| mr | **0.867** | 0.937 | 0.42 / **0.69** | mixed (IT2 terms vs NLLB numbers) |
+
+Key findings:
+
+- STT noise propagates through MT and MT *compounds* it (NLLB truncates longer
+  inputs, occasionally emits garbage; Malayalam number-words re-derive wrong
+  numbers, e.g. `299` → `Rs. 2,999`). Translation cannot repair upstream ASR
+  loss.
+- Inline English terms are lost for the routed languages (ml word recall 0.00
+  under both MT models) because IndicConformer phoneticizes them into native
+  script.
+- NLLB preserves numerals as digits, IndicTrans2 spells them as words; only
+  25% of ekacare dosage spans survive under either model.
+- Model agreement is low (WER 0.66–1.38), so per-language choices above were
+  confirmed by reading outputs, not scores alone.
 
 ## Manual API calls
 

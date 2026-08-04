@@ -77,7 +77,10 @@ Conclusions:
   MT-broken on number-words either way.
 - These are MT-quality issues surfaced by the ASR routing, not STT
   hallucinations. Candidate follow-ups: per-language MT routing (gu/ml/mr →
-  IndicTrans2) or number-word→digit normalization before MT.
+  IndicTrans2) or number-word→digit normalization before MT. The full MT eval
+  quantifies these per language and per model in
+  [MT_EVAL.md](MT_EVAL.md) (recommendation: hi→IndicTrans2, gu→NLLB,
+  ml→digit-normalize first).
 
 ## 4. Regression
 
