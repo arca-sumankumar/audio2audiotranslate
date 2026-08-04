@@ -102,14 +102,40 @@ ports 4222/50010/51000/50060.
 
 ## Real models (optional)
 
-By default the pipeline runs with deterministic **mock** backends so the full
-flow works with zero model downloads. To use real offline models —
-faster-whisper large-v3-turbo (ASR, int8), NLLB-200 distilled 600M (MT, int8),
-Piper (TTS), plus the Bergamot / IndicTrans2 MT candidates — download them
-once and start with `make local-real`. Full model catalogue, download/
-gating notes, the shipped gu/ml/mr ASR routing, and the MT-model evaluation
-workflow are in **[docs/MODELS.md](docs/MODELS.md)** (large-file sizes +
-procedures: [`list_of_lf.txt`](list_of_lf.txt)).
+The pipeline ships with deterministic **mock** backends (fake transcripts, beep
+TTS) so the full flow runs with zero model downloads. Real speech-to-speech
+translation is switched on with `make models` (download once) +
+`make local-real`. **One model is active per pipeline stage** — the MT
+candidate is the only model chosen per request (demo dropdown / `model` field):
+
+| Stage | Default (shipped) | What it is | Alternatives (evaluated, not default) |
+|---|---|---|---|
+| **STT** (speech → native script) | faster-whisper **large-v3-turbo** (int8, CPU) | OpenAI Whisper ported to CTranslate2 | **IndicConformer-600M** — auto-selected for **gu/ml/mr** via ASR routing · whisper **large-v3** (eval baseline only) |
+| **MT** (native script → English) | **NLLB-200 distilled 600M** (int8, CPU) | Meta NLLB, 200 languages | **IndicTrans2** (best hi→en, CPU-slow ~2–10 s/sentence) · **Bergamot** (tiny, not installed) |
+| **TTS** (English → speech) | **Piper** | fast neural TTS | none — voices ship for **en/hi/ml** only; other targets fall back to the mock beep |
+
+So the default real configuration uses **three models — Whisper turbo (STT),
+NLLB (MT), Piper (TTS) — plus IndicConformer for gu/ml/mr**. IndicTrans2,
+Bergamot and whisper-large-v3 are downloaded candidates you can switch to
+(e.g. IndicTrans2 for better Hindi → English), not models that run by default.
+The large-file list and download procedures for every model are in
+[`list_of_lf.txt`](list_of_lf.txt).
+
+**Each stage has been evaluated separately on real Indian speech:**
+
+- **STT** — whisper-turbo vs IndicConformer, per language
+  → **[docs/REAL_NATIVE_EVAL.md](docs/REAL_NATIVE_EVAL.md)**. Verdict: Hindi is
+  viable with Whisper; **gu/ml/mr are only usable via IndicConformer** (Whisper
+  hallucinates on them).
+- **MT** — NLLB vs IndicTrans2 on the real-native chain
+  → **[docs/MT_EVAL.md](docs/MT_EVAL.md)**. Verdict: hi → IndicTrans2, gu →
+  NLLB, ml → neither (normalize IndicConformer number-words to digits first).
+- **TTS** — Piper is the limiting step: only **en/hi/ml** voices exist, and its
+  synthetic Malayalam is out-of-distribution for Whisper, so `ms-*` demo
+  translations are unreliable (use real recordings).
+
+Full catalogue, per-model gating/licenses/runtime, the ASR routing design and
+the batch+streaming evaluation workflow: **[docs/MODELS.md](docs/MODELS.md)**.
 
 ## Documentation
 
