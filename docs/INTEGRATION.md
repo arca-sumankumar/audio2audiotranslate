@@ -35,9 +35,14 @@ curl -X POST http://localhost:50010/api/v1/translate \
     "filePath": "/data/audio/speech.wav",
     "fileFormat": "wav",
     "sourceLanguage": "en",
-    "targetLanguage": "hi"
+    "targetLanguage": "hi",
+    "model": "nllb"
   }'
 ```
+
+`model` is optional (`nllb` | `bergamot` | `indictrans2`; empty string = the
+worker's configured default) and switches the MT model for that job only. See
+[MODELS.md](MODELS.md) for the model catalogue.
 
 Response:
 
@@ -142,6 +147,9 @@ job_id = r.json()["jobId"]
 ## 2. Streaming translation (WebSocket)
 
 Connect to the ingest WS endpoint, then push audio as base64 WAV chunks.
+Example URL: `ws://localhost:50010/api/v1/stream?sourceLanguage=en&targetLanguage=hi&format=wav&model=nllb`
+(`model` is optional, as in batch). A complete working client is
+`scripts/smoke_test.py`.
 
 - **Request frames**: `{"type": "audio_chunk", "seqNo": N, "data": "<base64 wav>", "isFinal": false}`
 - **Response frames** (envelopes): `session_started`, `ack`, `partial_transcript`,
