@@ -1,0 +1,30 @@
+# End-to-end smoke test Job (run via: make k3s-smoke).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke
+  namespace: stts
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoke
+          image: stts/tools:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "/app/scripts/smoke_test.py"]
+          env:
+            - name: STTS_INGEST_URL
+              value: "http://ingest:50010"
+            - name: STTS_GATEWAY_URL
+              value: "http://gateway:51000"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          hostPath:
+            path: /opt/stts/data
+            type: DirectoryOrCreate

@@ -1,0 +1,22 @@
+# STTS forwarder configuration
+
+logLevel: INFO                  # DEBUG | INFO | WARNING | ERROR
+natsUrl: nats://broker:4222
+
+server:
+  host: 0.0.0.0
+  port: 50050                   # internal health port (safe range 49152-65535)
+
+socket:
+  enabled: false                # true | false (false = log-only mode)
+  url: ""                       # ws://host:port downstream SDK; empty + enabled=true logs
+  reconnectDelayMs: 1000        # >= 0 ms
+  maxReconnectDelayMs: 30000    # >= reconnectDelayMs
+  maxRetries: -1                # -1 = infinite, else >= 0
+
+forwarder:
+  reorderWindow: 32             # 1-1024 events buffered for reorder
+  reorderTimeoutMs: 500         # flush window when no higher seq arrives (10-5000)
+  bufferSize: 10000             # outbound events before dropping (100-100000)
+  sessionIdleSeconds: 300       # idle reorder-buffer eviction (60-3600)
+  maxRedeliveries: 3            # broker redeliveries before DLQ

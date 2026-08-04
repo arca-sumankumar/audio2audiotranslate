@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+PyYAML>=6.0
+nats-py>=2.7
+stts-core @ file:///app/common
+ctranslate2>=4.0.0
+sentencepiece>=0.2.0

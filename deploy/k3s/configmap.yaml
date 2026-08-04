@@ -1,0 +1,16 @@
+# Shared configuration for all STTS services (overrides baked-in defaults).
+# Keys use the STTS_ env prefix; see common/stts_core/config.py.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stts-config
+  namespace: stts
+data:
+  STTS_NATS_URL: "nats://broker:4222"
+  STTS_LOG_LEVEL: "INFO"
+  STTS_MODEL_BACKEND: "mock"
+  STTS_MODEL_OFFLINEPATH: "/models"
+  STTS_MODEL_LANGUAGES: "en,hi,es"
+  # forwarder downstream socket (uncomment when an SDK endpoint exists)
+  STTS_SOCKET_ENABLED: "false"
+  STTS_SOCKET_URL: ""

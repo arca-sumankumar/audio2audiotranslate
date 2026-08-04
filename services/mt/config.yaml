@@ -1,0 +1,22 @@
+# STTS MT (machine translation) worker configuration
+
+logLevel: INFO                  # DEBUG | INFO | WARNING | ERROR
+natsUrl: nats://broker:4222
+
+server:
+  host: 0.0.0.0
+  port: 50030                   # internal health port (safe range 49152-65535)
+
+audio:
+  sampleRate: 16000             # 8000-48000 Hz
+  chunkDurationMs: 300          # 200-500 ms
+
+model:
+  backend: mock                 # mock | nllb | bergamot | indictrans2 (default; per-session override via the demo "model" dropdown)
+  offlinePath: /models
+  languages: [en, bn, gu, hi, kn, ml, mr, pa, ta, te, ur]
+
+mt:
+  inferenceThreads: 2           # >= 1; thread pool for model inference
+  batchSize: 16                 # 1-128 segments per inference call (future)
+  maxRedeliveries: 3            # broker redeliveries before DLQ

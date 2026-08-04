@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asr
+  namespace: stts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: asr
+  template:
+    metadata:
+      labels:
+        app: asr
+    spec:
+      containers:
+        - name: asr
+          image: stts/asr:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: stts-config
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      volumes:
+        - name: models
+          hostPath:
+            path: /opt/stts/models
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asr
+  namespace: stts
+spec:
+  selector:
+    app: asr
+  ports:
+    - port: 50020
+      targetPort: 50020

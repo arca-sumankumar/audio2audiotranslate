@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tts
+  namespace: stts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tts
+  template:
+    metadata:
+      labels:
+        app: tts
+    spec:
+      containers:
+        - name: tts
+          image: stts/tts:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: stts-config
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      volumes:
+        - name: models
+          hostPath:
+            path: /opt/stts/models
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tts
+  namespace: stts
+spec:
+  selector:
+    app: tts
+  ports:
+    - port: 50040
+      targetPort: 50040

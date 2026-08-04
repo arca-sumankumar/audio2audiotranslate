@@ -1,0 +1,26 @@
+# STTS ingest service configuration
+# All values have defaults; env overrides use the STTS_ prefix
+# (e.g. STTS_NATS_URL=nats://localhost:4222).
+
+logLevel: INFO                  # DEBUG | INFO | WARNING | ERROR
+natsUrl: nats://broker:4222     # NATS JetStream URL
+
+server:
+  host: 0.0.0.0
+  port: 50010                   # safe dynamic range 49152-65535
+
+audio:
+  sampleRate: 16000             # 8000-48000 Hz
+  chunkDurationMs: 300          # 200-500 ms per streaming chunk
+  allowedFormats: [wav, mp3]
+  outputFormat: wav             # wav | mp3
+  maxFileSizeMb: 100            # 1-1000 MB
+
+model:
+  backend: mock                 # mock | (real engines to be added)
+  offlinePath: /models          # vendored model artifacts directory
+  languages: [en, bn, gu, hi, kn, ml, mr, pa, ta, te, ur]  # supported language codes
+
+ingest:
+  maxSessions: 1000             # concurrent WS sessions per instance (1-10000)
+  sessionIdleSeconds: 300       # idle session eviction (60-3600)

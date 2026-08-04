@@ -1,0 +1,23 @@
+# One-shot NATS stream bootstrap (runs after broker is healthy).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup
+  namespace: stts
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: stts/tools:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "/app/scripts/setup_nats.py"]
+          envFrom:
+            - configMapRef:
+                name: stts-config
+          env:
+            - name: NATS_URL
+              value: "nats://broker:4222"

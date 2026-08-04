@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STTS Demo</title>
+<style>
+  :root { color-scheme: dark; --bg:#0f1420; --card:#171e2e; --line:#2a3550;
+          --fg:#e6ecf7; --muted:#8b97ad; --acc:#4f8cff; --ok:#3ddc97; --err:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         background:var(--bg); color:var(--fg); }
+  header { padding:22px 28px 10px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+  header .modelbar { display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; }
+  header .modelbar label { margin:0; white-space:nowrap; }
+  #modelSel { min-width:320px; }
+  main { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px 28px; }
+  @media (max-width:900px){ main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:18px; display:flex; flex-direction:column; gap:12px; }
+  .card h2 { margin:0; font-size:15px; }
+  .card .sub { margin:0; color:var(--muted); font-size:12px; }
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  select, input[type=file] { background:#0c1120; color:var(--fg); border:1px solid var(--line);
+          border-radius:8px; padding:8px 10px; font-size:13px; }
+  button { background:var(--acc); color:#fff; border:none; border-radius:8px; padding:9px 16px;
+           font-size:13px; font-weight:600; cursor:pointer; }
+  button.secondary { background:transparent; border:1px solid var(--line); color:var(--fg); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .pill { font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid var(--line);
+          color:var(--muted); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .pill.err { border-color:var(--err); color:var(--err); }
+  .pill.run { border-color:var(--acc); color:var(--acc); animation:blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity:.4; } }
+  .box { background:#0c1120; border:1px solid var(--line); border-radius:8px; padding:10px;
+         min-height:90px; max-height:260px; overflow-y:auto; font-size:13px; line-height:1.5; }
+  .box .empty { color:var(--muted); }
+  .line.partial { color:var(--muted); }
+  .line.final { color:var(--fg); font-weight:600; }
+  .line .tag { color:var(--muted); font-weight:400; margin-right:6px; font-size:11px; }
+  .statusline { font-size:12px; color:var(--muted); }
+  audio { width:100%; }
+  .spacer { flex:1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>STTS &mdash; Speech Translation Service</h1>
+  <p>Batch (REST) and streaming (WebSocket) demos against the local docker compose stack.</p>
+  <div class="modelbar">
+    <label for="modelSel">Translation model</label>
+    <select id="modelSel"></select>
+  </div>
+</header>
+
+<main>
+  <!-- ===================== REST / BATCH ===================== -->
+  <section class="card" id="restCard">
+    <h2>1 &middot; Batch translation (REST)</h2>
+    <p class="sub">Pick a demo doctor-patient recording, or upload a .wav/.mp3 &rarr; ingest &rarr; asr &rarr; mt &rarr; tts &rarr; gateway stores the result.</p>
+    <div class="row">
+      <div><label for="rPreset">Test audio files</label>
+        <select id="rPreset"><option value="">&mdash; upload your own file &mdash;</option></select></div>
+    </div>
+    <div class="row">
+      <div><label for="rFile">Or upload an audio file</label>
+        <input type="file" id="rFile" accept=".wav,.mp3"></div>
+      <div><label for="rSrc">From</label>
+        <select id="rSrc"></select></div>
+      <div><label for="rTgt">To</label>
+        <select id="rTgt"></select></div>
+    </div>
+    <div class="row">
+      <button id="rBtn" onclick="restTranslate()">Translate</button>
+      <span class="pill" id="rPill">idle</span>
+      <span class="spacer"></span>
+      <button class="secondary" onclick="restClear()">Clear</button>
+    </div>
+    <div id="rStatus" class="statusline"></div>
+    <div class="box" id="rOut"><span class="empty">Translated transcript will appear here.</span></div>
+    <div id="rSrcWrap" style="display:none">
+      <label>Source audio</label>
+      <audio id="rSrcAudio" controls preload="metadata"></audio>
+    </div>
+    <div id="rOutWrap" style="display:none">
+      <label>Translated audio</label>
+      <audio id="rAudio" controls preload="metadata"></audio>
+    </div>
+  </section>
+
+  <!-- ===================== STREAMING ===================== -->
+  <section class="card" id="streamCard">
+    <h2>2 &middot; Live streaming (WebSocket)</h2>
+    <p class="sub">Speak into the mic; 16 kHz WAV chunks are sent over WebSocket to ingest, transcripts stream back live.</p>
+    <div class="row">
+      <div><label for="sSrc">From</label>
+        <select id="sSrc"></select></div>
+      <div><label for="sTgt">To</label>
+        <select id="sTgt"></select></div>
+    </div>
+    <div class="row">
+      <button id="sBtn" onclick="streamToggle()">Start mic</button>
+      <span class="pill" id="sPill">idle</span>
+    </div>
+    <div id="sStatus" class="statusline"></div>
+    <div class="row" style="gap:12px; align-items:stretch">
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px">
+        <label for="sSrcOut">Source transcript</label>
+        <div class="box" id="sSrcOut"><span class="empty">Recognized (source) transcript will appear here...</span></div>
+      </div>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px">
+        <label for="sTrOut">Target transcript</label>
+        <div class="box" id="sTrOut"><span class="empty">Translated (target) transcript will appear here...</span></div>
+      </div>
+    </div>
+    <div id="sAudioWrap" style="display:none">
+      <label for="sAudio">Translated audio (press play once the session is done)</label>
+      <audio id="sAudio" controls preload="metadata"></audio>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const CFG = { ingestPort: 50010, sampleRate: 16000, chunkMs: 300, mtModels: [
+  { id: "nllb", label: "NLLB-200 distilled 600M (CTranslate2 int8)", license: "CC-BY-NC-4.0" },
+  { id: "bergamot", label: "Mozilla Firefox Translations (tiny intgemm)", license: "MPL-2.0" },
+  { id: "indictrans2", label: "AI4Bharat IndicTrans2 1.1B (transformers)", license: "MIT" },
+] };
+const LANGS = ["en", "bn", "gu", "hi", "kn", "ml", "mr", "pa", "ta", "te", "ur"];
+const LANG_NAMES = {
+  en: "English", bn: "Bengali", gu: "Gujarati", hi: "Hindi", kn: "Kannada",
+  ml: "Malayalam", mr: "Marathi", pa: "Punjabi", ta: "Tamil", te: "Telugu", ur: "Urdu"
+};
+const wsBase = () => `ws://${location.hostname}:${CFG.ingestPort}/api/v1/stream`;
+
+(async () => {
+  try {
+    const r = await fetch("/api/config");
+    Object.assign(CFG, await r.json());
+  } catch (e) { /* defaults are fine */ }
+  populateModels();
+})();
+
+/* translation-model dropdown (batch + streaming share one selection) */
+function populateModels() {
+  const s = el("modelSel");
+  s.innerHTML = "";
+  const def = document.createElement("option");
+  def.value = "";
+  def.textContent = "Default (configured backend)";
+  s.appendChild(def);
+  (CFG.mtModels || []).forEach(m => {
+    const o = document.createElement("option");
+    o.value = m.id;
+    o.textContent = `${m.label} \u00b7 ${m.license}`;
+    o.title = (m.note || "") + (m.languages ? ` \u00b7 ${m.languages.join("/")}` : "");
+    s.appendChild(o);
+  });
+}
+
+/* language dropdowns */
+(() => {
+  const defaults = { rSrc: "en", rTgt: "hi", sSrc: "en", sTgt: "hi" };
+  Object.entries(defaults).forEach(([id]) => {
+    const s = el(id);
+    LANGS.forEach(l => {
+      const o = document.createElement("option");
+      o.value = l;
+      o.textContent = `${l} (${LANG_NAMES[l]})`;
+      s.appendChild(o);
+    });
+  });
+  Object.entries(defaults).forEach(([id, def]) => { el(id).value = def; });
+})();
+
+/* ---------- helpers ---------- */
+function el(id) { return document.getElementById(id); }
+function status(elId, msg, pill, cls) {
+  const p = el(pill); if (cls) { p.className = "pill " + cls; p.textContent = msg; }
+  else { p.className = "pill"; p.textContent = msg; }
+}
+function addLine(boxId, html) {
+  const b = el(boxId);
+  const empty = b.querySelector(".empty"); if (empty) empty.remove();
+  const d = document.createElement("div"); d.className = "line"; d.innerHTML = html;
+  b.appendChild(d); b.scrollTop = b.scrollHeight;
+}
+
+/* ---------- REST demo ---------- */
+let rSrcUrl = null, presetSrc = null;
+el("rFile").addEventListener("change", () => {
+  el("rPreset").value = "";
+  presetSrc = null;
+  if (rSrcUrl) URL.revokeObjectURL(rSrcUrl);
+  const f = el("rFile").files[0];
+  if (!f) { el("rSrcWrap").style.display = "none"; rSrcUrl = null; return; }
+  rSrcUrl = URL.createObjectURL(f);
+  el("rSrcAudio").src = rSrcUrl;
+  el("rSrcWrap").style.display = "block";
+});
+(async () => {
+  try {
+    const r = await fetch("/api/test_audio");
+    const j = await r.json();
+    const s = el("rPreset");
+    (j.files || []).forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.name;
+      o.textContent = (p.label || p.name) + (p.hasTranscript ? "" : " (no transcript)");
+      o.dataset.src = p.sourceLanguage || "";
+      s.appendChild(o);
+    });
+  } catch (e) { /* no test audio dir configured */ }
+})();
+el("rPreset").addEventListener("change", async () => {
+  const name = el("rPreset").value;
+  if (rSrcUrl) { URL.revokeObjectURL(rSrcUrl); rSrcUrl = null; }
+  if (!name) { el("rSrcWrap").style.display = "none"; presetSrc = null; return; }
+  el("rFile").value = "";
+  const opt = el("rPreset").selectedOptions[0];
+  if (opt && opt.dataset.src) el("rSrc").value = opt.dataset.src;
+  el("rSrcAudio").src = `/api/test_audio/${encodeURIComponent(name)}/audio`;
+  el("rSrcWrap").style.display = "block";
+  try {
+    const t = await fetch(`/api/test_audio/${encodeURIComponent(name)}/transcript`);
+    presetSrc = t.ok ? await t.text() : null;
+  } catch (e) { presetSrc = null; }
+});
+async function restTranslate() {
+  const preset = el("rPreset").value;
+  const file = el("rFile").files[0];
+  if (!preset && !file) { status("rStatus", "Choose a test audio or upload a .wav/.mp3 file first.", "rPill", "err"); return; }
+  const fd = new FormData();
+  if (preset) fd.append("preset", preset);
+  else fd.append("file", file);
+  fd.append("sourceLanguage", el("rSrc").value);
+  fd.append("targetLanguage", el("rTgt").value);
+  fd.append("model", el("modelSel").value);
+  el("rBtn").disabled = true;
+  status("rStatus", "submitting job...", "rPill", "run");
+  try {
+    const res = await fetch("/api/translate", { method: "POST", body: fd });
+    const j = await res.json();
+    if (!res.ok || !j.jobId) throw new Error(j.error || ("HTTP " + res.status));
+    status("rStatus", `job ${j.jobId.slice(0, 8)} submitted`, "rPill", "run");
+    pollJob(j.jobId);
+  } catch (e) {
+    status("rStatus", "submit failed: " + e.message, "rPill", "err");
+    el("rBtn").disabled = false;
+  }
+}
+function pollJob(jobId) {
+  fetch(`/api/jobs/${jobId}`).then(r => r.json()).then(j => {
+    if (j.status === "done") {
+      el("rBtn").disabled = false;
+      status("rStatus", "done", "rPill", "ok");
+      el("rOut").innerHTML = "";
+      if (presetSrc) addLine("rOut", `<span class="tag">source:</span>${esc(presetSrc.trim())}`);
+      addLine("rOut", `<span class="tag">translated (${el("rTgt").value}):</span>${esc(j.transcript || "")}`);
+      const a = el("rAudio");
+      a.src = `/api/jobs/${jobId}/audio`;
+      el("rOutWrap").style.display = "block";
+    } else if (j.status === "failed") {
+      el("rBtn").disabled = false;
+      status("rStatus", "failed: " + (j.error ? j.error.message : "unknown"), "rPill", "err");
+    } else {
+      status("rStatus", `processing (${j.status})...`, "rPill", "run");
+      setTimeout(() => pollJob(jobId), 900);
+    }
+  }).catch(() => { el("rBtn").disabled = false; status("rStatus", "gateway unreachable", "rPill", "err"); });
+}
+function restClear() {
+  el("rOut").innerHTML = '<span class="empty">Translated transcript will appear here.</span>';
+  el("rOutWrap").style.display = "none"; el("rAudio").src = "";
+  status("rStatus", "", "rPill", ""); el("rBtn").disabled = false;
+}
+/* ---------- streaming demo ---------- */
+let ws, audioCtx, srcNode, procNode, gainNode, micStream, capturing = false;
+let samples = new Int16Array(0), seqNo = 0, streaming = false;
+let live = {};      // per-stage live partial lines (replaced on update, not appended)
+let audioChunks = []; // parsed WAV segments accumulated for the final audio
+
+function streamToggle() {
+  if (!streaming) startStream(); else stopStream();
+}
+async function startStream() {
+  const url = `${wsBase()}?sourceLanguage=${el("sSrc").value}&targetLanguage=${el("sTgt").value}&format=wav&model=${el("modelSel").value}`;
+  streaming = true;
+  el("sBtn").textContent = "Stop mic";
+  el("sBtn").disabled = false;
+  status("sStatus", "connecting...", "sPill", "run");
+  el("sSrcOut").innerHTML = '<span class="empty">Recognized (source) transcript will appear here...</span>';
+  el("sTrOut").innerHTML = '<span class="empty">Translated (target) transcript will appear here...</span>';
+  live = {};
+  audioChunks = [];
+  el("sAudioWrap").style.display = "none";
+  el("sAudio").src = "";
+  seqNo = 0; samples = new Int16Array(0);
+  try { ws = new WebSocket(url); } catch (e) { streaming = false; el("sBtn").textContent = "Start mic"; el("sBtn").disabled = false; status("sStatus", "ws error", "sPill", "err"); return; }
+  ws.onopen = () => { status("sStatus", "connected, starting mic...", "sPill", "run"); startMic(); };
+  ws.onmessage = onWsMessage;
+  ws.onclose = () => { stopMic(); if (streaming) { streaming = false; el("sBtn").textContent = "Start mic"; el("sBtn").disabled = false; status("sStatus", "connection closed", "sPill", "err"); } };
+  ws.onerror = () => status("sStatus", "websocket error", "sPill", "err");
+}
+function stopStream() {
+  stopMic();
+  flushFinal();
+  el("sBtn").disabled = true;
+  status("sStatus", "final chunk sent, waiting for pipeline end...", "sPill", "run");
+}
+function onWsMessage(ev) {
+  const m = JSON.parse(ev.data);
+  if (m.type === "session_started") { status("sStatus", "session started — speak now", "sPill", "run"); }
+  else if (m.type === "ack") { /* keepalive */ }
+  else if (m.type === "partial_transcript" || m.type === "final_transcript") {
+    if (!m.payload.text) return;
+    const stage = m.payload.stage === "asr" ? "src" : "tr";
+    const boxId = stage === "src" ? "sSrcOut" : "sTrOut";
+    if (m.type === "final_transcript") {
+      // Commit once; a final is a complete snapshot, so never re-append it.
+      if (live[stage]) { live[stage].remove(); live[stage] = null; }
+      addLine(boxId, esc(m.payload.text));
+    } else {
+      // Partial: replace the live line in place so words don't repeat.
+      let ll = live[stage];
+      if (!ll) {
+        const b = el(boxId);
+        ll = document.createElement("div");
+        ll.className = "line partial";
+        b.appendChild(ll);
+        live[stage] = ll;
+      }
+      ll.innerHTML = `${esc(m.payload.text)} (partial)`;
+      el(boxId).scrollTop = el(boxId).scrollHeight;
+    }
+  } else if (m.type === "audio_output") {
+    if (m.payload.data) {
+      try { audioChunks.push(parseWav(m.payload.data)); } catch (e) { return; }
+    }
+    el("sAudio").src = URL.createObjectURL(buildWav(audioChunks));
+    el("sAudioWrap").style.display = "block";
+  } else if (m.type === "end") {
+    status("sStatus", "done — press play on the translated audio", "sPill", "ok");
+    streaming = false; el("sBtn").textContent = "Start mic"; el("sBtn").disabled = false;
+    stopMic(); try { ws.close(); } catch (e) {}
+  } else if (m.type === "error") {
+    // Permanent pipeline error (e.g. MT model missing): no `end` will arrive,
+    // so stop the stream here instead of waiting forever.
+    status("sStatus", "error: " + (m.message || m.code), "sPill", "err");
+    stopMic();
+    streaming = false;
+    el("sBtn").textContent = "Start mic";
+    el("sBtn").disabled = false;
+    try { ws.close(); } catch (e) {}
+  }
+}
+
+/* --- mic capture -> 16kHz Int16 -> wav chunks --- */
+async function startMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    streaming = false; el("sBtn").textContent = "Start mic"; el("sBtn").disabled = false;
+    status("sStatus", "mic denied: " + e.message, "sPill", "err");
+    try { ws.close(); } catch (_) {}
+    return;
+  }
+  audioCtx = new AudioContext();
+  srcNode = audioCtx.createMediaStreamSource(micStream);
+  gainNode = audioCtx.createGain(); gainNode.gain.value = 0;
+  procNode = audioCtx.createScriptProcessor(4096, 1, 1);
+  procNode.onaudioprocess = onAudioProcess;
+  srcNode.connect(procNode); procNode.connect(gainNode); gainNode.connect(audioCtx.destination);
+  capturing = true;
+}
+function stopMic() {
+  capturing = false;
+  try { procNode && procNode.disconnect(); } catch (e) {}
+  try { srcNode && srcNode.disconnect(); } catch (e) {}
+  try { audioCtx && audioCtx.close(); } catch (e) {}
+  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  procNode = srcNode = gainNode = audioCtx = micStream = null;
+}
+function onAudioProcess(e) {
+  if (!capturing) return;
+  const input = e.inputBuffer.getChannelData(0);
+  const out = downsample(input, audioCtx.sampleRate, CFG.sampleRate);
+  appendPcm(out);
+  flushChunks(false);
+}
+function appendPcm(f32) {
+  const n = samples.length + f32.length;
+  const next = new Int16Array(n);
+  next.set(samples, 0);
+  for (let i = 0; i < f32.length; i++) {
+    const v = Math.max(-1, Math.min(1, f32[i]));
+    next[samples.length + i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+  }
+  samples = next;
+}
+function flushChunks(final) {
+  const per = Math.floor(CFG.sampleRate * CFG.chunkMs / 1000);
+  while (samples.length >= per) {
+    const chunk = samples.subarray(0, per); samples = samples.slice(per);
+    sendWav(chunk, false);
+  }
+  if (final && samples.length > 0) { sendWav(samples, true); samples = samples.slice(0, 0); }
+}
+function flushFinal() {
+  if (samples.length === 0) {
+    const silence = new Int16Array(Math.floor(CFG.sampleRate * 0.05));
+    sendWav(silence, true);              // guarantee an end-of-speech marker
+  } else {
+    sendWav(samples, true); samples = samples.slice(0, 0);
+  }
+}
+function sendWav(int16, isFinal) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const buf = encodeWav(int16, CFG.sampleRate);
+  ws.send(JSON.stringify({ type: "audio_chunk", seqNo: ++seqNo, data: buf, isFinal }));
+}
+function encodeWav(int16, rate) {
+  const n = int16.length, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+  const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  wr(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); wr(8, "WAVE");
+  wr(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  wr(36, "data"); dv.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, int16[i], true);
+  return arrayBufferToBase64(buf);
+}
+function downsample(src, from, to) {
+  if (from === to) return src;
+  const n = Math.round(src.length * to / from);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i * from / to, i0 = Math.floor(t), i1 = Math.min(i0 + 1, src.length - 1);
+    out[i] = src[i0] + (src[i1] - src[i0]) * (t - i0);
+  }
+  return out;
+}
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+/* parse a canonical WAV segment into {rate, ch, bits, data} */
+function parseWav(hex) {
+  const bytes = hexToBytes(hex);
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let off = 12, data = null;
+  while (off + 8 <= bytes.length) {
+    const id = String.fromCharCode(bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]);
+    const size = dv.getUint32(off + 4, true);
+    if (id === "data") { data = bytes.subarray(off + 8, off + 8 + size); break; }
+    off += 8 + size + (size % 2);
+  }
+  if (!data) throw new Error("no data chunk");
+  return { rate: dv.getUint32(24, true), ch: dv.getUint16(22, true), bits: dv.getUint16(34, true), data };
+}
+/* concatenate parsed WAV segments into a single playable WAV blob */
+function buildWav(chunks) {
+  if (!chunks.length) return new Blob([], { type: "audio/wav" });
+  const first = chunks[0];
+  let total = 0;
+  for (const c of chunks) total += c.data.length;
+  const buf = new ArrayBuffer(44 + total), dv = new DataView(buf);
+  const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  const byteRate = first.rate * first.ch * first.bits / 8;
+  wr(0, "RIFF"); dv.setUint32(4, 36 + total, true); wr(8, "WAVE");
+  wr(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+  dv.setUint16(22, first.ch, true); dv.setUint32(24, first.rate, true);
+  dv.setUint32(28, byteRate, true); dv.setUint16(32, first.ch * first.bits / 8, true);
+  dv.setUint16(34, first.bits, true);
+  wr(36, "data"); dv.setUint32(40, total, true);
+  let p = 44;
+  const out = new Uint8Array(buf);
+  for (const c of chunks) { out.set(c.data, p); p += c.data.length; }
+  return new Blob([buf], { type: "audio/wav" });
+}
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf), bin = new Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) bin[i] = String.fromCharCode(bytes[i]);
+  return btoa(bin.join(""));
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

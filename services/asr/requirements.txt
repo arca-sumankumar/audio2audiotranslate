@@ -1,0 +1,14 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+PyYAML>=6.0
+nats-py>=2.7
+stts-core @ file:///app/common
+faster-whisper>=1.0.0
+# IndicConformer-600M (gu/ml/mr routing) needs torch for the TorchScript
+# preprocessor, transformers for the remote-code model class, onnx + onnxruntime
+# for the encoder/decoder graph.
+torch>=2.0
+transformers>=4.36
+onnx>=1.14
+onnxruntime>=1.17

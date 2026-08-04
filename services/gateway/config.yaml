@@ -1,0 +1,22 @@
+# STTS gateway configuration
+
+logLevel: INFO                  # DEBUG | INFO | WARNING | ERROR
+natsUrl: nats://broker:4222
+
+server:
+  host: 0.0.0.0
+  port: 51000                   # public REST port (safe range 49152-65535)
+
+audio:
+  outputFormat: wav             # wav | mp3
+  outputDir: /data/output       # directory for batch result audio files
+
+model:
+  backend: mock
+  offlinePath: /models
+  languages: [en, bn, gu, hi, kn, ml, mr, pa, ta, te, ur]
+
+gateway:
+  dbPath: /data/gateway.db      # SQLite database location
+  jobTtlSeconds: 86400          # job retention (300-2592000)
+  maxRedeliveries: 3            # broker redeliveries before DLQ

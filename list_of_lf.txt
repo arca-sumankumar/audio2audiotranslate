@@ -1,0 +1,81 @@
+LARGE FILES (NOT IN GIT)
+========================
+
+Everything below is large and downloadable, so it is excluded from the git
+repo (see .gitignore) and fetched on demand. Total working-tree footprint
+excluded: ~24 GB (models/) + ~135 MB (eval/test audio under data/).
+
+Prereq: project virtualenv
+    python3 -m venv .venv
+    .venv/bin/pip install --upgrade pip
+    .venv/bin/pip install -r services/asr/requirements.txt
+
+----------------------------------------------------------------------------
+1) MODELS  (~24 GB total)  ->  downloads into models/
+----------------------------------------------------------------------------
+Run all:
+    .venv/bin/python scripts/download_models.py      # or: make models
+
+Individual sources (run the matching sub-download, or fetch via snapshot_download):
+
+  models/whisper-large-v3-turbo/   (~1.5 GB)
+      HF:  mobiuslabsgmbh/faster-whisper-large-v3-turbo
+      cmd: .venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('mobiuslabsgmbh/faster-whisper-large-v3-turbo', local_dir='models/whisper-large-v3-turbo')"
+      note: int8 CTranslate2 conversion of openai/whisper-large-v3-turbo.
+            Product default ASR backend.
+
+  models/whisper-large-v3/         (~2.9 GB)  [evaluation baseline only]
+      HF:  Systran/faster-whisper-large-v3
+      cmd: .venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('Systran/faster-whisper-large-v3', local_dir='models/whisper-large-v3')"
+      note: full (non-turbo) large-v3, used only for the comparison runs in
+            docs/REAL_NATIVE_EVAL.md. Not required for the product.
+
+  models/nllb-600m/                (~621 MB)
+      HF:  mijuanlo/nllb-200-distilled-600M-ct2-int8
+      cmd: .venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('mijuanlo/nllb-200-distilled-600M-ct2-int8', local_dir='models/nllb-600m')"
+      note: CTranslate2 NLLB-200 distilled 600M (int8). Default MT model (nllb).
+
+  models/indic-conformer-600m/     (~2.4 GB)
+      HF:  ai4bharat/indic-conformer-600m-multilingual   (GATED)
+      cmd: .venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('ai4bharat/indic-conformer-600m-multilingual', local_dir='models/indic-conformer-600m')"
+      note: GATED repo -> first accept access at
+            https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual
+            and log in with `huggingface-cli login`.
+            Used for gu/ml/mr ASR routing (IndicConformerASR).
+            Retry helper: scripts/ic_download_retry.py.
+
+  models/indictrans2/              (~16 GB)   [optional MT model]
+      en-indic-1b: ai4bharat/indictrans2-en-indic-1B        -> models/indictrans2/en-indic-1b/
+      indic-en-1b: ai4bharat/indictrans2-indic-en-1B        -> models/indictrans2/indic-en-1b/
+      cmd: .venv/bin/python scripts/download_models.py      (downloads both subdirs)
+      note: HF gated; accept access on the two model cards first. Only needed if
+            you switch the MT leg from nllb to indictrans2.
+
+  models/piper/                    (~181 MB)
+      HF:  rhasspy/piper-voices  (revision v1.0.0)
+      cmd: .venv/bin/python scripts/download_models.py
+      note: TTS voices (en_US, hi_IN, etc.).
+
+  (Mozilla Bergamot MT is fetched by download_models.py too, but is NOT
+   installed in this workspace; the bergamot demo preset fails with MT_ERROR.)
+
+----------------------------------------------------------------------------
+2) EVAL / TEST AUDIO  (~135 MB)  ->  data/eval, data/test_audio
+----------------------------------------------------------------------------
+data/ is git-ignored wholesale (logs, nats runtime, outputs, uploads live
+there too). The two eval sets are reproducible:
+
+  a) Simulated doctor-patient interviews (Kaggle, 48 MB)
+       .venv/bin/python scripts/download_eval_dataset.py --all
+       requires KAGGLE_API_TOKEN env var; token is never logged.
+       dataset: lordpatil/simulated-patient-physician-medical-interviews
+
+  b) Real-native Indic clips (eQOURSE/multilingual-speech, 73 MB)
+       .venv/bin/python scripts/build_real_native_set.py
+       pulls the gu/ml/mr/hi recordings + gold transcripts from HF
+       dataset eQOURSE/multilingual-speech and writes
+       data/eval/real_native/{eqourse_gu,eqourse_ml,eqourse_mr,eqourse_hi}.
+
+  c) ekacare_hi comes from the ekacare corpus (see docs/REAL_NATIVE_EVAL.md);
+       demo presets under data/test_audio (14 MB) are built by
+       .venv/bin/python scripts/make_test_audio.py.

@@ -1,0 +1,22 @@
+# STTS TTS (text-to-speech) worker configuration
+
+logLevel: INFO                  # DEBUG | INFO | WARNING | ERROR
+natsUrl: nats://broker:4222
+
+server:
+  host: 0.0.0.0
+  port: 50040                   # internal health port (safe range 49152-65535)
+
+audio:
+  sampleRate: 16000             # 8000-48000 Hz
+  outputFormat: wav             # wav | mp3
+
+model:
+  backend: mock                 # mock | piper (ONNX; en/hi voices)
+  offlinePath: /models
+  languages: [en, bn, gu, hi, kn, ml, mr, pa, ta, te, ur]
+
+tts:
+  inferenceThreads: 2           # >= 1; thread pool for synthesis
+  onPartial: false              # true = synthesize partial transcripts too
+  maxRedeliveries: 3            # broker redeliveries before DLQ

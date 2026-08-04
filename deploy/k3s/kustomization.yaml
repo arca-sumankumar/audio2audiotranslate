@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - broker.yaml
+  - setup-job.yaml
+  - ingest.yaml
+  - asr.yaml
+  - mt.yaml
+  - tts.yaml
+  - forwarder.yaml
+  - gateway.yaml
+  - smoke-job.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: stts
